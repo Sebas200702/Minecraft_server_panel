@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://mancosfc.ddns.net:3001/api';
+const API_BASE_URL = '/api/proxy';
 
 class MinecraftAPI {
     async request(endpoint, options = {}) {
@@ -11,14 +11,48 @@ class MinecraftAPI {
                 ...options,
             });
 
+            // Check if response is ok
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error(`HTTP error! status: ${response.status}`);
+                return {
+                    success: false,
+                    message: `Error del servidor: ${response.status}`
+                };
             }
 
-            return await response.json();
+            // Check if response has content
+            const contentLength = response.headers.get('content-length');
+            if (contentLength === '0') {
+                console.error('Empty response from server');
+                return {
+                    success: false,
+                    message: 'Respuesta vacía del servidor'
+                };
+            }
+
+            // Try to parse JSON
+            try {
+                const data = await response.json();
+                return data;
+            } catch (jsonError) {
+                console.error('Failed to parse JSON response:', jsonError);
+
+                // Try to get text response for debugging
+                const textResponse = await response.text();
+                console.error('Raw response:', textResponse);
+
+                return {
+                    success: false,
+                    message: 'Respuesta inválida del servidor'
+                };
+            }
+
         } catch (error) {
             console.error('API request failed:', error);
-            throw error;
+            return {
+                success: false,
+                message: `Error de conexión: ${error.message}`
+            };
         }
     }
 
