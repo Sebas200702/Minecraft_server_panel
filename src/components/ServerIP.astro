@@ -1,0 +1,202 @@
+<div class="bg-gradient-to-br from-stone-800/90 to-stone-900/90 backdrop-blur-sm rounded-xl border border-green-500/30 shadow-2xl p-6 transition-all duration-300 hover:border-green-400/50 hover:shadow-green-500/20 hover:shadow-xl group">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-xl font-bold text-green-400 group-hover:text-green-300 transition-colors duration-300">
+      🌐 Server Connection
+    </h3>
+  </div>
+
+    <div class="space-y-4">
+    <!-- Server IP Display -->
+    <div class="bg-black/40 rounded-lg p-4 border border-green-500/20">
+      <div class="text-sm text-gray-400 mb-2">Server IP</div>
+      <div class="font-mono text-lg text-green-300 break-all mb-3" id="server-ip">
+        mancosfc.ddns.net
+      </div>
+      <button
+        id="copy-ip-button"
+        class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <span class="flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+          <span id="ip-button-text">Copy IP</span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Server Port Display -->
+    <div class="bg-black/40 rounded-lg p-4 border border-green-500/20">
+      <div class="text-sm text-gray-400 mb-2">Server Port</div>
+      <div class="font-mono text-lg text-green-300" id="server-port">
+        19132
+      </div>
+      <button
+        id="copy-port-button"
+        class="w-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed mt-3"
+      >
+        <span class="flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+          <span id="port-button-text">Copy Port</span>
+        </span>
+      </button>
+    </div>
+
+        <!-- Status Message -->
+    <div id="status-message" class="text-center text-sm text-gray-400 opacity-0 transition-opacity duration-300">
+    </div>
+  </div>
+</div>
+
+<script>
+    class ServerIPComponent {
+    private copyIPButton: HTMLButtonElement | null = null;
+    private copyPortButton: HTMLButtonElement | null = null;
+    private ipButtonText: HTMLElement | null = null;
+    private portButtonText: HTMLElement | null = null;
+    private statusMessage: HTMLElement | null = null;
+
+    private readonly serverIP = 'mancosfc.ddns.net';
+    private readonly serverPort = '19132';
+
+    constructor() {
+      this.initializeElements();
+      this.setupEventListeners();
+    }
+
+    private initializeElements(): void {
+      this.copyIPButton = document.getElementById('copy-ip-button') as HTMLButtonElement;
+      this.copyPortButton = document.getElementById('copy-port-button') as HTMLButtonElement;
+      this.ipButtonText = document.getElementById('ip-button-text');
+      this.portButtonText = document.getElementById('port-button-text');
+      this.statusMessage = document.getElementById('status-message');
+    }
+
+    private setupEventListeners(): void {
+      if (this.copyIPButton) {
+        this.copyIPButton.addEventListener('click', () => this.copyToClipboard(this.serverIP, 'ip'));
+      }
+      if (this.copyPortButton) {
+        this.copyPortButton.addEventListener('click', () => this.copyToClipboard(this.serverPort, 'port'));
+      }
+    }
+
+        private async copyToClipboard(text: string, type: 'ip' | 'port'): Promise<void> {
+      try {
+        if (!navigator.clipboard) {
+          // Fallback for older browsers
+          this.fallbackCopyTextToClipboard(text, type);
+          return;
+        }
+
+        await navigator.clipboard.writeText(text);
+        this.showSuccessMessage(type);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+        this.showErrorMessage(type);
+      }
+    }
+
+    private fallbackCopyTextToClipboard(text: string, type: 'ip' | 'port'): void {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          this.showSuccessMessage(type);
+        } else {
+          this.showErrorMessage(type);
+        }
+      } catch (error) {
+        console.error('Fallback: Failed to copy to clipboard:', error);
+        this.showErrorMessage(type);
+      }
+
+      document.body.removeChild(textArea);
+    }
+
+    private showSuccessMessage(type: 'ip' | 'port'): void {
+      const messages = {
+        ip: 'IP address copied to clipboard!',
+        port: 'Port copied to clipboard!'
+      };
+
+      this.updateButton(type, '✓ Copied!', 'text-green-300');
+      this.showStatus(messages[type], 'text-green-400');
+
+      setTimeout(() => {
+        this.resetButton(type);
+        this.hideStatus();
+      }, 2000);
+    }
+
+    private showErrorMessage(type: 'ip' | 'port'): void {
+      this.updateButton(type, '⚠ Failed', 'text-red-300');
+      this.showStatus('Failed to copy. Please try again.', 'text-red-400');
+
+      setTimeout(() => {
+        this.resetButton(type);
+        this.hideStatus();
+      }, 2000);
+    }
+
+    private updateButton(type: 'ip' | 'port', text: string, colorClass: string): void {
+      const buttons = {
+        ip: { button: this.copyIPButton, text: this.ipButtonText },
+        port: { button: this.copyPortButton, text: this.portButtonText }
+      };
+
+      const buttonConfig = buttons[type];
+      if (buttonConfig.button && buttonConfig.text) {
+        buttonConfig.text.textContent = text;
+        buttonConfig.button.disabled = true;
+        buttonConfig.text.className = colorClass;
+      }
+    }
+
+    private resetButton(type: 'ip' | 'port'): void {
+      const buttonConfigs = {
+        ip: { button: this.copyIPButton, text: this.ipButtonText, originalText: 'Copy IP' },
+        port: { button: this.copyPortButton, text: this.portButtonText, originalText: 'Copy Port' }
+      };
+
+      const buttonConfig = buttonConfigs[type];
+      if (buttonConfig.button && buttonConfig.text) {
+        buttonConfig.text.textContent = buttonConfig.originalText;
+        buttonConfig.button.disabled = false;
+        buttonConfig.text.className = '';
+      }
+    }
+
+    private showStatus(message: string, colorClass: string): void {
+      if (this.statusMessage) {
+        this.statusMessage.textContent = message;
+        this.statusMessage.className = `text-center text-sm ${colorClass} opacity-100 transition-opacity duration-300`;
+      }
+    }
+
+    private hideStatus(): void {
+      if (this.statusMessage) {
+        this.statusMessage.className = 'text-center text-sm text-gray-400 opacity-0 transition-opacity duration-300';
+      }
+    }
+  }
+
+  // Initialize the component when the DOM is loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      new ServerIPComponent();
+    });
+  } else {
+    new ServerIPComponent();
+  }
+</script>
