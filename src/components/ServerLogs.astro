@@ -1,0 +1,174 @@
+---
+import Card from './Card.astro';
+---
+
+<Card title="📜 Logs del Servidor">
+  <div class="flex justify-between items-center mb-4">
+    <div class="flex items-center gap-2">
+      <span class="text-gray-300 text-sm font-medium font-mono">Líneas:</span>
+      <select class="bg-stone-700 border border-stone-600 text-green-400 px-3 py-1 rounded font-mono text-sm cursor-pointer hover:bg-stone-600 focus:outline-none focus:ring-2 focus:ring-green-500"
+              id="lines-select">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-all duration-200 text-sm font-mono border border-blue-500 hover:-translate-y-0.5 hover:shadow-md"
+            style="text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);"
+            id="refresh-logs">
+      🔄 Actualizar
+    </button>
+  </div>
+
+  <div class="w-full h-80 bg-black border-2 border-stone-600 rounded-lg overflow-hidden relative font-mono text-sm"
+       style="background-image: radial-gradient(circle at 1px 1px, rgba(0, 255, 0, 0.1) 1px, transparent 0); background-size: 10px 10px;">
+
+    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-green-500/50 to-transparent"></div>
+
+    <div class="h-full overflow-y-auto p-4 text-green-400 leading-relaxed"
+         id="logs-container"
+         style="scrollbar-width: thin; scrollbar-color: rgba(34, 197, 94, 0.5) rgba(41, 37, 36, 0.8);">
+      <div class="flex items-center justify-center h-full text-gray-500">
+        <span class="animate-pulse">⏳ Cargando logs...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 flex items-center gap-2 text-xs text-gray-400 font-mono">
+    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+    <span id="log-status">Actualizando cada 10 segundos</span>
+  </div>
+</Card>
+
+<script>
+  import { minecraftAPI } from '../services/api.js';
+
+  class ServerLogs {
+    private logsContainer: HTMLElement | null;
+    private linesSelect: HTMLSelectElement | null;
+    private refreshBtn: HTMLElement | null;
+    private logStatus: HTMLElement | null;
+    private autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+    constructor() {
+      this.logsContainer = document.getElementById('logs-container');
+      this.linesSelect = document.getElementById('lines-select') as HTMLSelectElement;
+      this.refreshBtn = document.getElementById('refresh-logs');
+      this.logStatus = document.getElementById('log-status');
+
+      this.initEventListeners();
+      this.loadLogs();
+      this.startAutoRefresh();
+    }
+
+    initEventListeners() {
+      this.refreshBtn?.addEventListener('click', () => this.loadLogs());
+      this.linesSelect?.addEventListener('change', () => this.loadLogs());
+    }
+
+    startAutoRefresh() {
+      this.autoRefreshInterval = setInterval(() => {
+        this.loadLogs(false);
+      }, 10000);
+    }
+
+    async loadLogs(show: boolean = true) {
+      try {
+        if (show && this.logStatus) {
+          this.logStatus.textContent = 'Cargando logs...';
+        }
+
+        const lines = this.linesSelect?.value || '50';
+        const response = await minecraftAPI.getLogs(parseInt(lines));
+
+        if (response.success && this.logsContainer) {
+          this.displayLogs(response.logs);
+          if (this.logStatus) {
+            this.logStatus.textContent = `Última actualización: ${new Date().toLocaleTimeString()}`;
+          }
+        } else {
+          this.showError('Error al cargar logs');
+        }
+      } catch (error) {
+        console.error('Error loading logs:', error);
+        this.showError('Error de conexión');
+      }
+    }
+
+    displayLogs(logs: string[]) {
+      if (!this.logsContainer) return;
+
+      const logLines = logs.map(log => this.formatLogLine(log)).join('\n');
+
+      this.logsContainer.innerHTML = `<pre class="whitespace-pre-wrap text-green-400 leading-relaxed">${logLines}</pre>`;
+
+      // Auto-scroll to bottom
+      this.logsContainer.scrollTop = this.logsContainer.scrollHeight;
+    }
+
+    formatLogLine(log: string): string {
+      // Color coding for different log levels
+      let formattedLog = log;
+
+      // Timestamps - cyan color
+      formattedLog = formattedLog.replace(
+        /(\[\d{2}:\d{2}:\d{2}\])/g,
+        '<span style="color: #06b6d4;">$1</span>'
+      );
+
+      // Error messages - red color
+      if (log.toLowerCase().includes('error') || log.toLowerCase().includes('exception')) {
+        formattedLog = `<span style="color: #ef4444;">${formattedLog}</span>`;
+      }
+      // Warning messages - yellow color
+      else if (log.toLowerCase().includes('warn')) {
+        formattedLog = `<span style="color: #f59e0b;">${formattedLog}</span>`;
+      }
+      // Info messages - blue color
+      else if (log.toLowerCase().includes('info')) {
+        formattedLog = `<span style="color: #3b82f6;">${formattedLog}</span>`;
+      }
+
+      return formattedLog;
+    }
+
+    showError(message: string) {
+      if (this.logsContainer) {
+        this.logsContainer.innerHTML = `
+          <div class="flex items-center justify-center h-full text-red-400">
+            <span>❌ ${message}</span>
+          </div>
+        `;
+      }
+      if (this.logStatus) {
+        this.logStatus.textContent = message;
+      }
+    }
+  }
+
+  // Initialize when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    new ServerLogs();
+  });
+</script>
+
+<style>
+  /* Custom scrollbar styles for Webkit browsers */
+  #logs-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #logs-container::-webkit-scrollbar-track {
+    background: rgba(41, 37, 36, 0.8);
+    border-radius: 4px;
+  }
+
+  #logs-container::-webkit-scrollbar-thumb {
+    background: rgba(34, 197, 94, 0.5);
+    border-radius: 4px;
+  }
+
+  #logs-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(34, 197, 94, 0.7);
+  }
+</style>

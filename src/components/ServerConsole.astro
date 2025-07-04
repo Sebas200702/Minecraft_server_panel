@@ -1,0 +1,266 @@
+---
+import Card from './Card.astro';
+---
+
+<Card title="💻 Consola de Comandos">
+  <div class="mb-4">
+    <p class="text-gray-300 text-sm mb-3 font-mono">
+      Ejecuta comandos directamente en el servidor. Usa <span class="text-yellow-400 font-bold">↑/↓</span> para navegar el historial.
+    </p>
+
+    <div class="flex gap-2 mb-3">
+      <button class="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white text-xs rounded transition-colors font-mono border border-stone-500"
+              data-command="list">👥 list</button>
+      <button class="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white text-xs rounded transition-colors font-mono border border-stone-500"
+              data-command="time set day">☀️ day</button>
+      <button class="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white text-xs rounded transition-colors font-mono border border-stone-500"
+              data-command="time set night">🌙 night</button>
+      <button class="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white text-xs rounded transition-colors font-mono border border-stone-500"
+              data-command="weather clear">🌤️ clear</button>
+      <button class="px-3 py-1 bg-stone-600 hover:bg-stone-500 text-white text-xs rounded transition-colors font-mono border border-stone-500"
+              data-command="save-all">💾 save</button>
+    </div>
+  </div>
+
+  <div class="relative">
+    <div class="flex items-center">
+      <span class="text-green-400 font-mono text-lg mr-2">$</span>
+      <input
+        type="text"
+        class="flex-1 bg-black border-2 border-stone-600 text-green-400 px-3 py-2 font-mono focus:border-green-500 focus:outline-none rounded-l"
+        style="caret-color: #22c55e;"
+        placeholder="Escribe un comando..."
+        id="command-input"
+        autocomplete="off"
+      />
+      <button
+        class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold transition-all duration-200 border-2 border-green-500 font-mono rounded-r hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+        style="text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);"
+        id="execute-btn"
+      >
+        ▶ Ejecutar
+      </button>
+    </div>
+  </div>
+
+  <div class="mt-4 h-64 bg-black border-2 border-stone-600 rounded-lg overflow-hidden relative font-mono text-sm"
+       style="background-image: radial-gradient(circle at 1px 1px, rgba(0, 255, 0, 0.1) 1px, transparent 0); background-size: 10px 10px;">
+
+    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-green-500/50 to-transparent"></div>
+
+    <div class="h-full overflow-y-auto p-4"
+         id="command-history"
+         style="scrollbar-width: thin; scrollbar-color: rgba(34, 197, 94, 0.5) rgba(41, 37, 36, 0.8);">
+      <div class="text-gray-500 text-center py-8 animate-pulse">
+        🚀 Listo para ejecutar comandos...
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3 text-xs text-gray-400 font-mono">
+    💡 <strong>Comandos populares:</strong> list, help, say &lt;mensaje&gt;, give &lt;jugador&gt; &lt;item&gt;
+  </div>
+</Card>
+
+<script>
+  import { minecraftAPI } from '../services/api.js';
+
+  class ServerConsole {
+    private commandInput: HTMLInputElement | null;
+    private executeBtn: HTMLButtonElement | null;
+    private commandHistory: HTMLElement | null;
+    private historyIndex: number = -1;
+    private history: string[] = [];
+
+    constructor() {
+      this.commandInput = document.getElementById('command-input') as HTMLInputElement;
+      this.executeBtn = document.getElementById('execute-btn') as HTMLButtonElement;
+      this.commandHistory = document.getElementById('command-history');
+
+      this.initEventListeners();
+      this.loadHistory();
+    }
+
+    initEventListeners() {
+      // Execute button
+      this.executeBtn?.addEventListener('click', () => this.executeCommand());
+
+      // Enter key to execute
+      this.commandInput?.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Enter') {
+          this.executeCommand();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateHistory(-1);
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateHistory(1);
+        }
+      });
+
+      // Quick command buttons
+      document.querySelectorAll('[data-command]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const target = e.target as HTMLButtonElement;
+          const command = target.dataset.command;
+          if (command && this.commandInput) {
+            this.commandInput.value = command;
+            this.commandInput.focus();
+          }
+        });
+      });
+    }
+
+    async executeCommand() {
+      const command = this.commandInput?.value.trim();
+
+      if (!command) return;
+
+      // Security check - prevent dangerous commands
+      const dangerousCommands = ['stop', 'shutdown', 'kill', 'rm', 'del'];
+      if (dangerousCommands.some(dangerous => command.toLowerCase().includes(dangerous))) {
+        this.addToHistory(`$ ${command}`, 'error');
+        this.addToHistory('❌ Comando peligroso bloqueado por seguridad', 'error');
+        return;
+      }
+
+      try {
+        this.setLoading(true);
+        this.addToHistory(`$ ${command}`, 'command');
+
+        const response = await minecraftAPI.executeCommand(command);
+
+        if (response.success) {
+          this.addToHistory(`✅ ${response.message || 'Comando ejecutado correctamente'}`, 'success');
+
+          // Add to history
+          this.history.unshift(command);
+          this.history = this.history.slice(0, 20); // Keep only last 20 commands
+          this.saveHistory();
+          this.historyIndex = -1;
+
+          if (this.commandInput) this.commandInput.value = '';
+        } else {
+          this.addToHistory(`❌ Error: ${response.message || 'Error desconocido'}`, 'error');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Error de conexión';
+        this.addToHistory(`❌ Error: ${errorMessage}`, 'error');
+      } finally {
+        this.setLoading(false);
+      }
+    }
+
+    addToHistory(message: string, type: string = 'output') {
+      if (!this.commandHistory) return;
+
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'mb-2 leading-relaxed';
+
+      let color = 'text-green-400';
+      if (type === 'error') color = 'text-red-400';
+      else if (type === 'success') color = 'text-green-300';
+      else if (type === 'command') color = 'text-cyan-400';
+
+      entry.innerHTML = `
+        <div class="flex items-start gap-2">
+          <span class="text-gray-500 text-xs mt-1 font-mono">[${timestamp}]</span>
+          <span class="flex-1 ${color} font-mono break-all">${message}</span>
+        </div>
+      `;
+
+      this.commandHistory.appendChild(entry);
+
+      // Remove welcome message if present
+      const welcomeMsg = this.commandHistory.querySelector('.text-center');
+      if (welcomeMsg) {
+        welcomeMsg.remove();
+      }
+
+      // Auto-scroll to bottom
+      this.commandHistory.scrollTop = this.commandHistory.scrollHeight;
+
+      // Limit history entries (keep last 50)
+      const entries = this.commandHistory.querySelectorAll('.mb-2');
+      if (entries.length > 50) {
+        entries[0].remove();
+      }
+    }
+
+    navigateHistory(direction: number) {
+      if (this.history.length === 0) return;
+
+      this.historyIndex += direction;
+
+      if (this.historyIndex < -1) {
+        this.historyIndex = -1;
+        if (this.commandInput) this.commandInput.value = '';
+        return;
+      }
+
+      if (this.historyIndex >= this.history.length) {
+        this.historyIndex = this.history.length - 1;
+      }
+
+      if (this.historyIndex >= 0 && this.commandInput) {
+        this.commandInput.value = this.history[this.historyIndex];
+      }
+    }
+
+    setLoading(loading: boolean) {
+      if (this.executeBtn) {
+        this.executeBtn.disabled = loading;
+        this.executeBtn.textContent = loading ? '⏳ Ejecutando...' : '▶ Ejecutar';
+      }
+      if (this.commandInput) {
+        this.commandInput.disabled = loading;
+      }
+    }
+
+    saveHistory() {
+      try {
+        localStorage.setItem('minecraft-console-history', JSON.stringify(this.history));
+      } catch (error) {
+        console.warn('Could not save command history:', error);
+      }
+    }
+
+    loadHistory() {
+      try {
+        const saved = localStorage.getItem('minecraft-console-history');
+        if (saved) {
+          this.history = JSON.parse(saved);
+        }
+      } catch (error) {
+        console.warn('Could not load command history:', error);
+      }
+    }
+  }
+
+  // Initialize when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    new ServerConsole();
+  });
+</script>
+
+<style>
+  /* Custom scrollbar styles for Webkit browsers */
+  #command-history::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #command-history::-webkit-scrollbar-track {
+    background: rgba(41, 37, 36, 0.8);
+    border-radius: 4px;
+  }
+
+  #command-history::-webkit-scrollbar-thumb {
+    background: rgba(34, 197, 94, 0.5);
+    border-radius: 4px;
+  }
+
+  #command-history::-webkit-scrollbar-thumb:hover {
+    background: rgba(34, 197, 94, 0.7);
+  }
+</style>

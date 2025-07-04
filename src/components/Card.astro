@@ -1,0 +1,25 @@
+---
+export interface Props {
+  title: string;
+  className?: string;
+  gradient?: boolean;
+}
+
+const { title, className = '', gradient = false } = Astro.props;
+---
+
+<div class={`
+  bg-stone-800 border-4 border-stone-600 rounded-lg shadow-2xl relative overflow-hidden
+  ${gradient ? 'bg-gradient-to-br from-green-400 via-green-500 to-green-600' : ''}
+  ${className}
+`} style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0); background-size: 20px 20px;">
+  <div class="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+
+  <div class="p-4 border-b-2 border-stone-600 bg-black/30">
+    <h3 class="text-xl font-bold text-green-400 font-mono" style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);">{title}</h3>
+  </div>
+
+  <div class="p-4">
+    <slot />
+  </div>
+</div>
