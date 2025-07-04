@@ -5,6 +5,7 @@ import SystemInfo from '../components/SystemInfo.astro';
 import ServerLogs from '../components/ServerLogs.astro';
 import ServerConsole from '../components/ServerConsole.astro';
 import ServerIP from '../components/ServerIP.astro';
+import OnlinePlayers from '../components/OnlinePlayers.astro';
 ---
 
 <html lang="es">
@@ -38,7 +39,7 @@ import ServerIP from '../components/ServerIP.astro';
 						</div>
 					</div>
 
-					
+
 				</div>
 			</div>
 		</header>
@@ -47,7 +48,7 @@ import ServerIP from '../components/ServerIP.astro';
 		<main class="max-w-7xl mx-auto px-4 py-8">
 			<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 				<!-- Server Control Panel -->
-				<div class="transform  transition-transform duration-300"
+				<div class="transform xl:col-span-2  transition-transform duration-300"
 				     style="animation: slideInLeft 0.8s ease-out;">
 					<ServerControl />
 				</div>
@@ -57,8 +58,14 @@ import ServerIP from '../components/ServerIP.astro';
                <ServerIP />
            </div>
 
-				<!-- System Information -->
+				<!-- Online Players -->
 				<div class="transform  transition-transform duration-300"
+				     style="animation: slideInRight 0.8s ease-out 0.3s both;">
+					<OnlinePlayers />
+				</div>
+
+				<!-- System Information -->
+				<div class="transform xl:col-span-2  transition-transform duration-300"
 				     style="animation: slideInRight 0.8s ease-out 0.2s both;">
 					<SystemInfo />
 				</div>
