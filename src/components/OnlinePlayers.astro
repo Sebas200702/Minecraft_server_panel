@@ -110,18 +110,45 @@ import Card from './Card.astro';
       }
     }
 
-                    parsePlayersFromLogs(logs: string[]) {
+    parsePlayersFromLogs(logs: string[]) {
       // Patrones específicos para Minecraft Bedrock Server
       const connectPattern = /Player connected: ([^,]+), xuid:/i;
       const disconnectPattern = /Player disconnected: ([^,]+), xuid:/i;
 
+      // Patrones para detectar reinicio del servidor
+      const serverStartPatterns = [
+        /Starting Server/i,
+        /Server started/i,
+        /Starting up/i,
+        /Starting Minecraft server/i,
+        /Minecraft server version/i,
+        /Server is starting/i,
+        /Level Name:/i,
+        /Starting dedicated server/i
+      ];
+
       // Limpiar la lista de jugadores online antes de procesar
       this.onlinePlayers.clear();
+
+      // Encontrar el índice del último reinicio del servidor
+      let lastRestartIndex = -1;
+      for (let i = logs.length - 1; i >= 0; i--) {
+        const log = logs[i];
+        if (serverStartPatterns.some(pattern => pattern.test(log))) {
+          lastRestartIndex = i;
+          break;
+        }
+      }
+
+      // Si no encontramos un reinicio, usar todos los logs disponibles
+      const logsToProcess = lastRestartIndex >= 0 ? logs.slice(lastRestartIndex) : logs;
+
+      console.log(`Procesando ${logsToProcess.length} líneas de logs desde el último reinicio (índice ${lastRestartIndex})`);
 
       // Extraer todos los eventos de conexión/desconexión con sus timestamps
       const events: { playerName: string, action: 'connect' | 'disconnect', timestamp: Date, logLine: string }[] = [];
 
-      for (const log of logs) {
+      for (const log of logsToProcess) {
         const timestamp = this.extractTimestamp(log);
 
         // Verificar conexiones
@@ -156,7 +183,7 @@ import Card from './Card.astro';
         });
       }
 
-      // Determinar jugadores actualmente online basándose en la última acción
+      // Determinar jugadores actualmente online basándose en la última acción desde el reinicio
       for (const [playerName, state] of playerStates) {
         if (state.action === 'connect') {
           this.onlinePlayers.set(playerName, {
@@ -167,7 +194,7 @@ import Card from './Card.astro';
         }
       }
 
-      console.log(`Eventos procesados: ${events.length} total`);
+      console.log(`Eventos procesados desde último reinicio: ${events.length} total`);
       console.log('Estados finales de jugadores:');
       for (const [name, state] of playerStates) {
         console.log(`  ${name}: ${state.action} a las ${state.timestamp.toLocaleTimeString()}`);
